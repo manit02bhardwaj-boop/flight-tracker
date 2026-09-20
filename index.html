@@ -172,6 +172,36 @@
   .book-btn .b-name { font-weight: 600; font-size: 0.88rem; }
   .book-btn .b-desc { font-size: 0.7rem; color: var(--muted); }
 
+  /* ── Travel Details ── */
+  .travel-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px; margin-bottom: 20px;
+  }
+  .travel-card h3 { font-size: 0.9rem; margin-bottom: 14px; color: var(--muted); font-weight: 500; }
+  .travel-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .travel-grid .field { display: flex; flex-direction: column; gap: 4px; }
+  .travel-grid .field label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .travel-grid .field input, .travel-grid .field select {
+    background: var(--card2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 12px; border-radius: 7px;
+    font-size: 0.85rem;
+  }
+  .travel-grid .field input:focus, .travel-grid .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  .travel-grid .field input[type="date"], .travel-grid .field input[type="time"] { min-width: 0; }
+  .travel-full { grid-column: 1 / -1; }
+  .travel-bottom { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .travel-bottom .field { flex: 1; min-width: 120px; }
+  .cabin-select-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .baggage-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .baggage-opt {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 12px; cursor: pointer;
+    font-size: 0.8rem; color: var(--text); transition: all 0.15s;
+  }
+  .baggage-opt:hover { border-color: var(--accent); }
+  .baggage-opt.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cabin-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+
   footer { text-align: center; color: var(--muted); font-size: 0.72rem; margin-top: 28px; padding-bottom: 10px; }
 
   /* Chat */
@@ -326,6 +356,72 @@
         </select>
       </div>
       <button class="btn-search" id="searchBtn">Search &amp; Analyze</button>
+    </div>
+  </div>
+
+  <div class="travel-card">
+    <h3>✈ Travel Details</h3>
+    <div class="travel-grid">
+      <div class="field">
+        <label>Departure date</label>
+        <input type="date" id="depDate">
+      </div>
+      <div class="field">
+        <label>Departure time</label>
+        <input type="time" id="depTime" value="08:00">
+      </div>
+      <div class="field">
+        <label>Return date (optional)</label>
+        <input type="date" id="retDate">
+      </div>
+      <div class="field">
+        <label>Arrival time (optional)</label>
+        <input type="time" id="arrTime">
+      </div>
+      </div>
+      <div class="field">
+        <label>Adults</label>
+        <select id="adults">
+          <option value="1">1</option><option value="2" selected>2</option>
+          <option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Children (2-11)</label>
+        <select id="children">
+          <option value="0" selected>0</option><option value="1">1</option>
+          <option value="2">2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Infants (&lt;2)</label>
+        <select id="infants">
+          <option value="0" selected>0</option><option value="1">1</option>
+          <option value="2">2</option><option value="3">3</option>
+        </select>
+      </div>
+      <div class="field travel-full">
+        <label>Cabin class</label>
+        <div class="cabin-select-group" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="baggage-opt active" data-cabin="economy">Economy</button>
+          <button class="baggage-opt" data-cabin="premium">Premium Economy</button>
+          <button class="baggage-opt" data-cabin="business">Business</button>
+          <button class="baggage-opt" data-cabin="first">First Class</button>
+        </div>
+        <input type="hidden" id="cabinClass" value="economy">
+      </div>
+      <div class="field travel-full">
+        <label>Checked baggage</label>
+        <div class="baggage-group">
+          <button class="baggage-opt active" data-baggage="0">None</button>
+          <button class="baggage-opt" data-baggage="1">1 piece</button>
+          <button class="baggage-opt" data-baggage="2">2 pieces</button>
+        </div>
+        <input type="hidden" id="baggage" value="0">
+      </div>
     </div>
   </div>
 
@@ -671,9 +767,43 @@ const ROUTE_BASE = {
   'LAX-SFO':2500,'SFO-LAX':2500,
 };
 
-function genPrices({from,to,currency}, seed) {
+function seededRand(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const CABIN_MULT = {economy:1.0, premium:1.45, business:2.9, first:4.8};
+const BAGGAGE_MULT = {0:1.0, 1:1.08, 2:1.16};
+
+function timeMult(depTime) {
+  if(!depTime) return 1.0;
+  const h = parseInt(depTime.split(':')[0],10);
+  if(h >= 6 && h < 10) return 0.94;   // early morning — cheaper
+  if(h >= 10 && h < 14) return 1.0;   // midday — baseline
+  if(h >= 14 && h < 18) return 1.06;  // afternoon — slightly pricier
+  return 1.02;                         // late — baseline+
+}
+
+function paxMult(adults, children, infants) {
+  return adults + children*0.72 + infants*0.08;
+}
+
+function genPrices({from,to,currency}, travel, seed) {
+  const rand = seededRand(seed + 999);
   const key = from+'-'+to;
   const base = ROUTE_BASE[key] || 4500;
+  const {adults=1,children=0,infants=0,cabin='economy',baggage=0,depTime=''} = travel;
+  const paxFactor = paxMult(adults, children, infants);
+  const cabinF = CABIN_MULT[cabin] || 1.0;
+  const bagF = BAGGAGE_MULT[baggage] || 1.0;
+  const timeF = timeMult(depTime);
+  const scale = paxFactor * cabinF * bagF * timeF;
   const weeks = 52;
   const prices = [];
   const labels = [];
@@ -687,7 +817,7 @@ function genPrices({from,to,currency}, seed) {
     if(wo>=20 && wo<=32) s += 0.35;
     if(wo>=49) s += 0.5;
     if(m===3||m===10) s -= 0.1;
-    const noise = (Math.sin(w*0.4+seed)*0.08)+(Math.random()-0.5)*0.18;
+    const noise = (Math.sin(w*0.4+seed)*0.08)+(rand()-0.5)*0.18;
     let p = base*(1+s+noise);
     const step = currency==='DKK'?250:currency==='EUR'?30:currency==='USD'?50:20;
     p = Math.round(p/step)*step;
@@ -698,9 +828,12 @@ function genPrices({from,to,currency}, seed) {
   return {prices,labels};
 }
 
-function fmt(v,cur) {
+const FX = {DKK:1, EUR:0.15, USD:0.14, GBP:0.11}; // DKK → target currency
+
+function fmt(v, cur) {
   const s={DKK:'kr',EUR:'€',USD:'$',GBP:'£'};
-  return (s[cur]||'kr')+' '+v.toLocaleString();
+  const converted = Math.round(v * FX[cur]);
+  return (s[cur]||'kr')+' '+converted.toLocaleString();
 }
 
 // ──────────────────────────────────────────────
@@ -821,9 +954,10 @@ function buildChart(labels,prices,currency) {
         tooltip:{callbacks:{label:ctx=>fmt(ctx.parsed.y,currency)}}
       },
       scales:{
-        x:{ticks:{color:'#7a8099',maxTicksLimit:12,font:{size:11}},grid:{color:'rgba(42,47,69,0.4)'}},
-        y:{ticks:{color:'#7a8099',font:{size:11},callback:v=>fmt(v,currency)},grid:{color:'rgba(42,47,69,0.4)'}}
-      }
+        x:{ticks:{color:'#7a8099',maxTicksLimit:12,font:{size:11}},grid:{color:'rgba(42,47,69,0.4)'},title:{display:true,text:'Week',color:'#7a8099'}},
+        y:{ticks:{color:'#7a8099',font:{size:11},callback:v=>fmt(v,currency)},grid:{color:'rgba(42,47,69,0.4)'},title:{display:true,text:'Price ('+currency+')',color:'#7a8099'}}
+      },
+      onClick:onPointClick
     }
   });
 }
@@ -841,7 +975,9 @@ function runAnalysis(route) {
     document.getElementById('analStatus').textContent = 'Analyzing…';
     document.getElementById('analStatus').style.color = 'var(--accent)';
 
-    const {prices,labels} = genPrices(route,Date.now());
+    const seed = (route.from+route.to+route.currency).split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+    const travel = getTravel();
+    const {prices,labels} = genPrices(route, travel, seed);
     const result = analyze({prices,labels,currency:route.currency});
     lastResult = result;
 
@@ -878,14 +1014,61 @@ function runAnalysis(route) {
       </a>`
     ).join('');
 
-    // Booking links
-    document.getElementById('bookMomondo').href      = `https://www.momondo.com/flight-search/?origin=${route.from}&destination=${route.to}`;
-    document.getElementById('bookFlybilet').href     = `https://www.flybilet.com/search?from=${route.from}&to=${route.to}`;
-    document.getElementById('bookSkyscanner').href   = `https://www.skyscanner.com/transport/flights/${route.from}/${route.to}/`;
-    document.getElementById('bookGoogle').href       = `https://www.google.com/travel/flights?destination=${route.to}&source=${route.from}`;
-    document.getElementById('bookKiwi').href         = `https://www.kiwi.com/search/results/${route.from}-${route.to}`;
+function buildBookingUrl(agency, route, travel) {
+  const {dep, ret, cabin, baggage, passengers, adults, children, infants, tripType} = travel;
+  const retStr = ret || '';
+  const paxCount = passengers || adults;
+  const yymdd = (d) => { if(!d) return ''; const dt=new Date(d); return `${String(dt.getFullYear()).slice(2)}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`; };
+  const depStr = dep ? encodeURIComponent(dep) : '';
+  const retEnc = retStr ? encodeURIComponent(retStr) : '';
+  const cabinMap = {economy:'economy',premium:'premium_economy',business:'business',first:'first'};
 
-    document.getElementById('searchBtn').textContent = 'Search & Analyze';
+  switch(agency) {
+    case 'momondo':
+      return `https://www.momondo.com/flight-search/?origin=${route.from}&destination=${route.to}&date1=${depStr}&currency=${route.currency}&nationality=DK`;
+    case 'flybilet':
+      let fb = `https://www.flybilet.com/search?from=${route.from}&to=${route.to}`;
+      if(depStr) fb += `&dep=${depStr}`;
+      if(retEnc) fb += `&ret=${retEnc}`;
+      if(paxCount) fb += `&pax=${paxCount}`;
+      return fb;
+    case 'skyscanner':
+      let sk = `https://www.skyscanner.com/transport/flights/${route.from}/${route.to}/${yymdd(dep)}/?adultsv2=${adults}&cabinclass=${cabinMap[cabin]||'economy'}`;
+      if(retStr) sk += `&rtn=1`;
+      else sk += `&rtn=0`;
+      if(children) sk += `&childrenv2=${children}`;
+      if(infants) sk += `&infantsv2=${infants}`;
+      return sk;
+    case 'google':
+      let cabinLabel = {economy:'economy',premium:'premium economy',business:'business',first:'first'}[cabin]||'economy';
+      let adultStr = adults + (adults===1?'':' adults');
+      let q = `Flights to ${route.to} from ${route.from} on ${depStr}`;
+      if(retStr) q += ` through ${retStr}`;
+      q += ` with ${adultStr}`;
+      if(children) q += ` and ${children} children`;
+      if(infants) q += ` and ${infants} infants`;
+      q += ` ${cabinLabel}`;
+      return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}&curr=${route.currency}`;
+    case 'kiwi':
+      let kw = `https://www.kiwi.com/search/results/${route.from}-${route.to}`;
+      if(depStr) kw += `?date-from=${depStr}`;
+      if(retEnc) kw += `&date-to=${retEnc}`;
+      if(paxCount) kw += `&passengers=${paxCount}`;
+      return kw;
+    default:
+      return `https://www.momondo.com/flight-search/?origin=${route.from}&destination=${route.to}`;
+  }
+}
+
+// Booking links — pre-filled with all travel details
+const travel = getTravel();
+document.getElementById('bookMomondo').href      = buildBookingUrl('momondo', currentRoute, travel);
+document.getElementById('bookFlybilet').href     = buildBookingUrl('flybilet', currentRoute, travel);
+document.getElementById('bookSkyscanner').href   = buildBookingUrl('skyscanner', currentRoute, travel);
+document.getElementById('bookGoogle').href       = buildBookingUrl('google', currentRoute, travel);
+document.getElementById('bookKiwi').href         = buildBookingUrl('kiwi', currentRoute, travel);
+
+document.getElementById('searchBtn').textContent = 'Search & Analyze';
     document.getElementById('searchBtn').disabled = false;
     document.getElementById('analStatus').textContent = '✅ Complete';
     document.getElementById('analStatus').style.color = 'var(--green)';
@@ -944,21 +1127,127 @@ function onAirportSelect() {
   runAnalysis(currentRoute);
 }
 
-// ──────────────────────────────────────────────
-//  AI Chat
-// ──────────────────────────────────────────────
-const chatToggle=document.getElementById('chatToggle');
-const chatPanel=document.getElementById('chatPanel');
-const chatMsgs=document.getElementById('chatMsgs');
-const chatInput=document.getElementById('chatInput');
-const chatSend=document.getElementById('chatSend');
-const chClose=document.getElementById('chClose');
+// ── Travel details wiring ──
+function getTravel() {
+  const dep = document.getElementById('depDate').value || '';
+  const ret = document.getElementById('retDate').value || '';
+  const adults = parseInt(document.getElementById('adults').value) || 1;
+  const children = parseInt(document.getElementById('children').value) || 0;
+  const infants = parseInt(document.getElementById('infants').value) || 0;
+  const cabin = document.getElementById('cabinClass').value || 'economy';
+  const baggage = parseInt(document.getElementById('baggage').value) || 0;
+  const passengers = adults + children + infants;
+  const tripType = ret ? 'round' : 'oneway';
+  return {dep,ret,adults,children,infants,cabin,baggage,passengers,tripType};
+}
 
-function openChat(){chatPanel.classList.add('open');chatToggle.classList.add('active');chatToggle.textContent='✕';chatInput.focus();}
-function closeChat(){chatPanel.classList.remove('open');chatToggle.classList.remove('active');chatToggle.textContent='💬';}
+// Cabin class buttons
+document.querySelectorAll('[data-cabin]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-cabin]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('cabinClass').value = btn.dataset.cabin;
+    updateBookingLinks();
+  });
+});
+
+// Baggage buttons
+document.querySelectorAll('[data-baggage]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-baggage]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('baggage').value = btn.dataset.baggage;
+    updateBookingLinks();
+  });
+});
+
+// Travel detail changes → update booking links live
+['depDate','retDate','adults','children','infants'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('change', updateBookingLinks);
+});
+
+function updateBookingLinks() {
+  const travel = getTravel();
+  document.getElementById('bookMomondo').href      = buildBookingUrl('momondo', currentRoute, travel);
+  document.getElementById('bookFlybilet').href     = buildBookingUrl('flybilet', currentRoute, travel);
+  document.getElementById('bookSkyscanner').href   = buildBookingUrl('skyscanner', currentRoute, travel);
+  document.getElementById('bookGoogle').href       = buildBookingUrl('google', currentRoute, travel);
+  document.getElementById('bookKiwi').href         = buildBookingUrl('kiwi', currentRoute, travel);
+}
+
+// ── Search / swap / airport ──
+document.getElementById('searchBtn').addEventListener('click', () => {
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+});
+
+document.getElementById('swapBtn').addEventListener('click', () => {
+  const f=document.getElementById('fromCity');
+  const t=document.getElementById('toCity');
+  const fv=f.value, tv=t.value;
+  const fi=f.dataset.iata||'', ti=t.dataset.iata||'';
+  f.value=tv; t.value=fv;
+  f.dataset.iata=ti; t.dataset.iata=fi;
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+});
+
+function onAirportSelect() {
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+}
+
+// ── Travel details wiring ──
+function getTravel() {
+  const dep = document.getElementById('depDate').value || '';
+  const ret = document.getElementById('retDate').value || '';
+  const adults = parseInt(document.getElementById('adults').value) || 1;
+  const children = parseInt(document.getElementById('children').value) || 0;
+  const infants = parseInt(document.getElementById('infants').value) || 0;
+  const cabin = document.getElementById('cabinClass').value || 'economy';
+  const baggage = parseInt(document.getElementById('baggage').value) || 0;
+  const passengers = adults + children + infants;
+  const tripType = ret ? 'round' : 'oneway';
+  return {dep,ret,adults,children,infants,cabin,baggage,passengers,tripType};
+}
+
+// Cabin class buttons
+document.querySelectorAll('[data-cabin]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-cabin]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('cabinClass').value = btn.dataset.cabin;
+    updateBookingLinks();
+  });
+});
+
+// Baggage buttons
+document.querySelectorAll('[data-baggage]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-baggage]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('baggage').value = btn.dataset.baggage;
+    updateBookingLinks();
+  });
+});
+
+// Travel detail changes → update booking links live
+['depDate','retDate','adults','children','infants'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('change', updateBookingLinks);
+});
+
+function updateBookingLinks() {
+  const travel = getTravel();
+  document.getElementById('bookMomondo').href      = buildBookingUrl('momondo', currentRoute, travel);
+  document.getElementById('bookFlybilet').href     = buildBookingUrl('flybilet', currentRoute, travel);
+  document.getElementById('bookSkyscanner').href   = buildBookingUrl('skyscanner', currentRoute, travel);
+  document.getElementById('bookGoogle').href       = buildBookingUrl('google', currentRoute, travel);
+  document.getElementById('bookKiwi').href         = buildBookingUrl('kiwi', currentRoute, travel);
+}
+
 chatToggle.addEventListener('click',()=>chatPanel.classList.contains('open')?closeChat():openChat());
-chClose.addEventListener('click',closeChat);
-document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&chatPanel.classList.contains('open'))closeChat();});
 
 function addMsg(role,text){
   const div=document.createElement('div');
@@ -1062,6 +1351,30 @@ function isNear(now,startStr,endStr,weeks){
   const wEnd=new Date(Math.max(end+7*24*3600*1000*weeks,end));
   return now>=wStart && now<=wEnd;
 }
+
+function onPointClick(e, elements) {
+  if(!elements || !elements.length) return;
+  const idx = elements[0].index;
+  if(!lastResult || !lastResult.labels) return;
+  const label = lastResult.labels[idx];
+  const price = lastResult.prices[idx];
+  const momondoUrl = `https://www.momondo.com/flight-search/?origin=${currentRoute.from}&destination=${currentRoute.to}`;
+  if(confirm(`Week of ${label}: ${fmt(price, currentRoute.currency)} — open Momondo to book?`)) {
+    window.open(momondoUrl, '_blank');
+  }
+}
+
+// ──────────────────────────────────────────────
+//  Airport autocomplete init
+// ──────────────────────────────────────────────
+setupAuto('fromCity', 'fromDD', onAirportSelect);
+setupAuto('toCity', 'toDD', onAirportSelect);
+
+// Currency change → re-analyze
+document.getElementById('currency').addEventListener('change', () => {
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+});
 
 document.addEventListener('click',(e)=>{
   if(chatPanel.classList.contains('open')&&!chatPanel.contains(e.target)&&e.target!==chatToggle)closeChat();
