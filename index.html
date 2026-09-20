@@ -1127,20 +1127,6 @@ function onAirportSelect() {
   runAnalysis(currentRoute);
 }
 
-// ── Travel details wiring ──
-function getTravel() {
-  const dep = document.getElementById('depDate').value || '';
-  const ret = document.getElementById('retDate').value || '';
-  const adults = parseInt(document.getElementById('adults').value) || 1;
-  const children = parseInt(document.getElementById('children').value) || 0;
-  const infants = parseInt(document.getElementById('infants').value) || 0;
-  const cabin = document.getElementById('cabinClass').value || 'economy';
-  const baggage = parseInt(document.getElementById('baggage').value) || 0;
-  const passengers = adults + children + infants;
-  const tripType = ret ? 'round' : 'oneway';
-  return {dep,ret,adults,children,infants,cabin,baggage,passengers,tripType};
-}
-
 // Cabin class buttons
 document.querySelectorAll('[data-cabin]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1196,55 +1182,6 @@ document.getElementById('swapBtn').addEventListener('click', () => {
 function onAirportSelect() {
   currentRoute = getRouteFromForm();
   runAnalysis(currentRoute);
-}
-
-// ── Travel details wiring ──
-function getTravel() {
-  const dep = document.getElementById('depDate').value || '';
-  const ret = document.getElementById('retDate').value || '';
-  const adults = parseInt(document.getElementById('adults').value) || 1;
-  const children = parseInt(document.getElementById('children').value) || 0;
-  const infants = parseInt(document.getElementById('infants').value) || 0;
-  const cabin = document.getElementById('cabinClass').value || 'economy';
-  const baggage = parseInt(document.getElementById('baggage').value) || 0;
-  const passengers = adults + children + infants;
-  const tripType = ret ? 'round' : 'oneway';
-  return {dep,ret,adults,children,infants,cabin,baggage,passengers,tripType};
-}
-
-// Cabin class buttons
-document.querySelectorAll('[data-cabin]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-cabin]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('cabinClass').value = btn.dataset.cabin;
-    updateBookingLinks();
-  });
-});
-
-// Baggage buttons
-document.querySelectorAll('[data-baggage]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-baggage]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('baggage').value = btn.dataset.baggage;
-    updateBookingLinks();
-  });
-});
-
-// Travel detail changes → update booking links live
-['depDate','retDate','adults','children','infants'].forEach(id => {
-  const el = document.getElementById(id);
-  if(el) el.addEventListener('change', updateBookingLinks);
-});
-
-function updateBookingLinks() {
-  const travel = getTravel();
-  document.getElementById('bookMomondo').href      = buildBookingUrl('momondo', currentRoute, travel);
-  document.getElementById('bookFlybilet').href     = buildBookingUrl('flybilet', currentRoute, travel);
-  document.getElementById('bookSkyscanner').href   = buildBookingUrl('skyscanner', currentRoute, travel);
-  document.getElementById('bookGoogle').href       = buildBookingUrl('google', currentRoute, travel);
-  document.getElementById('bookKiwi').href         = buildBookingUrl('kiwi', currentRoute, travel);
 }
 
 chatToggle.addEventListener('click',()=>chatPanel.classList.contains('open')?closeChat():openChat());
