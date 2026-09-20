@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlightFinder – Search &amp; Book Flights</title>
+<script src="lib/chart.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0e14; --card: #151821; --card2: #1c2030;
+    --border: #2a2f45; --text: #e8ecf4; --muted: #7a8099;
+    --accent: #4a8af4; --green: #30d070; --red: #f56a6a;
+    --amber: #f0b840; --radius: 10px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #7b5af4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; font-weight: 800; color: #fff;
+  }
+  .logo h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .tagline { color: var(--muted); font-size: 0.82rem; }
+
+  .search-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 20px;
+  }
+  .search-card h2 { font-size: 0.95rem; margin-bottom: 14px; color: var(--muted); font-weight: 500; }
+
+  .search-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 130px; }
+  .field label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select {
+    background: var(--card2); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 14px; border-radius: 8px;
+    font-size: 0.92rem; width: 100%;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+  .dropdown {
+    position: absolute; top: 100%; left: 0; z-index: 50;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; margin-top: 4px; padding: 6px 0;
+    min-width: 220px; max-height: 200px; overflow-y: auto;
+    display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .dropdown.show { display: block; }
+  .dd-item {
+    padding: 9px 14px; cursor: pointer; font-size: 0.88rem;
+    display: flex; justify-content: space-between; gap: 10px;
+    transition: background 0.1s;
+  }
+  .dd-item:hover, .dd-item.active { background: var(--accent); color: #fff; }
+  .dd-item .city { flex: 1; }
+  .dd-item .code {
+    font-weight: 600; color: var(--muted); font-size: 0.75rem;
+    background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 4px;
+    font-family: monospace;
+  }
+  .dd-item:hover .code { color: #fff; }
+  .dd-none { padding: 10px 14px; color: var(--muted); font-size: 0.85rem; text-align: center; }
+  .field-wrap { position: relative; }
+
+  .btn-search {
+    background: var(--accent); color: #fff; border: none;
+    padding: 11px 28px; border-radius: 8px; font-weight: 600;
+    cursor: pointer; font-size: 0.92rem; transition: opacity 0.15s;
+    white-space: nowrap; height: 42px;
+  }
+  .btn-search:hover { opacity: 0.88; }
+  .btn-search:disabled { opacity: 0.5; cursor: default; }
+
+  .swap-btn {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0 12px; cursor: pointer;
+    color: var(--muted); font-size: 1.1rem; height: 42px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .swap-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .stat .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat .val { font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
+  .stat .nt  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .dot-green { color: var(--green); }
+  .dot-red   { color: var(--red); }
+  .dot-amber { color: var(--amber); }
+
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 20px;
+  }
+  .chart-card h2 { font-size: 0.95rem; margin-bottom: 2px; }
+  .chart-card .hint { color: var(--muted); font-size: 0.78rem; margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 250px; }
+  canvas { width: 100% !important; }
+
+  .lower { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 680px) { .lower { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px;
+  }
+  .card h3 { font-size: 0.9rem; margin-bottom: 12px; color: var(--accent); }
+  .insight {
+    padding: 10px 12px; border-left: 3px solid var(--accent);
+    background: var(--card2); border-radius: 0 8px 8px 0;
+    margin-bottom: 8px; font-size: 0.86rem; line-height: 1.45;
+  }
+  .insight .tag { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 3px; }
+  .insight.green  { border-color: var(--green); }
+  .insight.red    { border-color: var(--red); }
+  .insight.amber  { border-color: var(--amber); }
+
+  .suggest-list { display: flex; flex-direction: column; gap: 8px; }
+  .suggest-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; cursor: pointer;
+    text-decoration: none; color: var(--text); transition: all 0.15s;
+  }
+  .suggest-item:hover { border-color: var(--accent); background: #252a42; transform: translateX(3px); }
+  .suggest-item .s-code {
+    width: 34px; height: 34px; border-radius: 8px; background: var(--accent);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+  }
+  .suggest-item .s-info { display: flex; flex-direction: column; }
+  .suggest-item .s-route { font-weight: 600; font-size: 0.88rem; }
+  .suggest-item .s-price { font-size: 0.74rem; color: var(--green); }
+
+  .book-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 20px;
+  }
+  .book-card h2 { font-size: 0.95rem; margin-bottom: 14px; }
+  .book-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .book-btn {
+    display: flex; align-items: center; gap: 11px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 11px 13px;
+    text-decoration: none; color: var(--text); transition: all 0.15s;
+  }
+  .book-btn:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(74,138,244,0.15); }
+  .book-btn .b-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.95rem; flex-shrink: 0;
+  }
+  .book-btn .b-info { display: flex; flex-direction: column; }
+  .book-btn .b-name { font-weight: 600; font-size: 0.88rem; }
+  .book-btn .b-desc { font-size: 0.7rem; color: var(--muted); }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.72rem; margin-top: 28px; padding-bottom: 10px; }
+
+  /* Chat */
+  #chatToggle {
+    position: fixed; bottom: 20px; right: 20px;
+    width: 50px; height: 50px; border-radius: 50%;
+    background: var(--accent); color: #fff; border: none;
+    font-size: 1.4rem; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(74,138,244,0.4);
+    transition: transform 0.2s; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #chatToggle:hover { transform: scale(1.08); }
+  #chatToggle.active { background: var(--green); }
+
+  #chatPanel {
+    position: fixed; bottom: 80px; right: 20px;
+    width: 360px; max-width: calc(100vw - 40px); height: 480px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column; z-index: 99;
+    overflow: hidden; transform: scale(0.92); opacity: 0;
+    pointer-events: none; transition: transform 0.2s, opacity 0.2s;
+  }
+  #chatPanel.open { transform: scale(1); opacity: 1; pointer-events: all; }
+
+  .chat-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    background: var(--card2);
+  }
+  .chat-hdr .ch-info { display: flex; align-items: center; gap: 10px; }
+  .chat-hdr .ch-ava {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--accent);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem;
+  }
+  .chat-hdr .ch-name { font-weight: 600; font-size: 0.9rem; }
+  .chat-hdr .ch-sub { font-size: 0.7rem; color: var(--muted); }
+  .chat-hdr .ch-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 1.2rem; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  }
+  .chat-hdr .ch-close:hover { color: var(--text); }
+
+  .chat-msgs {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .chat-msgs::-webkit-scrollbar { width: 4px; }
+  .chat-msgs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  .msg { display: flex; gap: 7px; max-width: 88%; animation: msgIn 0.2s ease-out; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg .mb {
+    padding: 9px 13px; border-radius: 13px; font-size: 0.85rem; line-height: 1.45;
+    background: var(--card2); border: 1px solid var(--border);
+  }
+  .msg.user .mb { background: var(--accent); color: #fff; border-color: var(--accent); border-bottom-right-radius: 3px; }
+  .msg.ai .mb { border-bottom-left-radius: 3px; }
+  .msg .mb .mlbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 3px; display: block; }
+  .msg.user .mb .mlbl { color: rgba(255,255,255,0.7); }
+  .msg .mb .mtext { color: var(--text); }
+  .msg.user .mb .mtext { color: #fff; }
+
+  .typing {
+    display: flex; gap: 4px; padding: 9px 13px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 13px; border-bottom-left-radius: 3px;
+    align-self: flex-start; max-width: 88%;
+  }
+  .typing span { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite ease-in-out; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+  .chat-quick {
+    display: flex; gap: 5px; flex-wrap: wrap; padding: 6px 12px;
+    border-top: 1px solid var(--border); background: var(--card2);
+  }
+  .chat-quick button {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--muted); padding: 4px 10px; border-radius: 16px;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.15s;
+  }
+  .chat-quick button:hover { border-color: var(--accent); color: var(--text); }
+
+  .chat-row {
+    display: flex; gap: 7px; padding: 8px 12px;
+    border-top: 1px solid var(--border); background: var(--card2);
+  }
+  .chat-row input {
+    flex: 1; background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 18px;
+    font-size: 0.88rem; outline: none;
+  }
+  .chat-row input:focus { border-color: var(--accent); }
+  .chat-row button {
+    background: var(--accent); color: #fff; border: none;
+    width: 36px; height: 36px; border-radius: 50%;
+    font-size: 1rem; cursor: pointer; transition: opacity 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .chat-row button:hover { opacity: 0.85; }
+  .chat-row button:disabled { opacity: 0.4; cursor: default; }
+
+  @media (max-width: 480px) {
+    #chatPanel { width: calc(100vw - 24px); right: 12px; bottom: 72px; height: 440px; }
+    #chatToggle { bottom: 14px; right: 14px; width: 44px; height: 44px; font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">✈</div>
+      <div>
+        <h1>Flight<span>Finder</span></h1>
+        <div class="tagline">Search, compare &amp; book — prices analyzed for you</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="search-card">
+    <h2>Search flights</h2>
+    <div class="search-row">
+      <div class="field-wrap">
+        <div class="field">
+          <label>From</label>
+          <input type="text" id="fromCity" placeholder="City or airport" value="Copenhagen" autocomplete="off">
+          <div class="dropdown" id="fromDD"></div>
+        </div>
+      </div>
+      <button class="swap-btn" id="swapBtn" title="Swap departure and destination">⇄</button>
+      <div class="field-wrap">
+        <div class="field">
+          <label>To</label>
+          <input type="text" id="toCity" placeholder="City or airport" value="Bangkok" autocomplete="off">
+          <div class="dropdown" id="toDD"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Currency</label>
+        <select id="currency">
+          <option value="DKK">DKK</option>
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <button class="btn-search" id="searchBtn">Search &amp; Analyze</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="lbl"><span class="dot-green">●</span>cheapest period</div>
+      <div class="val" id="cheapestWeek" style="color:var(--green)">—</div>
+      <div class="nt" id="cheapestNote"></div>
+    </div>
+    <div class="stat">
+      <div class="lbl"><span class="dot-red">●</span>most expensive period</div>
+      <div class="val" id="expensiveWeek" style="color:var(--red)">—</div>
+      <div class="nt" id="expensiveNote"></div>
+    </div>
+    <div class="stat">
+      <div class="lbl"><span class="dot-amber">●</span>average price</div>
+      <div class="val" id="avgPrice" style="color:var(--amber)">—</div>
+      <div class="nt" id="avgNote"></div>
+    </div>
+    <div class="stat">
+      <div class="lbl">price spread</div>
+      <div class="val" id="priceSpread">—</div>
+      <div class="nt" id="spreadNote"></div>
+    </div>
+    <div class="stat">
+      <div class="lbl">last analysis</div>
+      <div class="val" id="lastTime" style="font-size:0.85rem;color:var(--muted)">—</div>
+      <div class="nt" id="analStatus" style="color:var(--muted)">Ready</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Price trend — next 12 months</h2>
+    <div class="hint">Weekly average round-trip fare. <span style="color:var(--green)">●</span> cheap &nbsp; <span style="color:var(--red)">●</span> expensive &nbsp; <span style="color:var(--amber)">●</span> average</div>
+    <div class="chart-wrap">
+      <canvas id="priceChart"></canvas>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="card">
+      <h3>📊 Data Analyzer — Insights</h3>
+      <div id="insightsList"><div style="color:var(--muted);font-size:0.85rem;padding:12px 0;text-align:center;">Run a search to see insights.</div></div>
+    </div>
+    <div class="card">
+      <h3>💡 Flight Suggester</h3>
+      <div id="suggestList"><div style="color:var(--muted);font-size:0.85rem;padding:12px 0;text-align:center;">Run a search to get suggestions.</div></div>
+    </div>
+  </div>
+
+  <div class="book-card">
+    <h2>Book your flight — choose an agency</h2>
+    <div class="book-grid">
+      <a class="book-btn" id="bookMomondo" href="#" target="_blank">
+        <div class="b-icon" style="background:#1a7bc8;color:#fff;">M</div>
+        <div class="b-info"><span class="b-name">Momondo</span><span class="b-desc">Wide search, good deals</span></div>
+      </a>
+      <a class="book-btn" id="bookFlybilet" href="#" target="_blank">
+        <div class="b-icon" style="background:#f5a623;color:#fff;">F</div>
+        <div class="b-info"><span class="b-name">Flybilet</span><span class="b-desc">Cheap flights &amp; deals</span></div>
+      </a>
+      <a class="book-btn" id="bookSkyscanner" href="#" target="_blank">
+        <div class="b-icon" style="background:#28cfcf;color:#000;">S</div>
+        <div class="b-info"><span class="b-name">Skyscanner</span><span class="b-desc">Compare all airlines</span></div>
+      </a>
+      <a class="book-btn" id="bookGoogle" href="#" target="_blank">
+        <div class="b-icon" style="background:#4285f4;color:#fff;">G</div>
+        <div class="b-info"><span class="b-name">Google Flights</span><span class="b-desc">Fast calendar view</span></div>
+      </a>
+      <a class="book-btn" id="bookKiwi" href="#" target="_blank">
+        <div class="b-icon" style="background:#6c5ce7;color:#fff;">K</div>
+        <div class="b-info"><span class="b-name">Kiwi.com</span><span class="b-desc">Mix carriers, nomad</span></div>
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    FlightFinder — price data is simulated for demo. Book via the agencies above.
+  </footer>
+</div>
+
+<button id="chatToggle" aria-label="Open AI chat" title="Ask about flight prices">💬</button>
+
+<div id="chatPanel">
+  <div class="chat-hdr">
+    <div class="ch-info">
+      <div class="ch-ava">✈</div>
+      <div>
+        <div class="ch-name">FlightFinder AI</div>
+        <div class="ch-sub">Your flight assistant</div>
+      </div>
+    </div>
+    <button class="ch-close" id="chClose" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="msg ai">
+      <div class="mb">
+        <span class="mlbl">FlightFinder AI</span>
+        <span class="mtext">Hi! I see the latest price analysis for your route. Ask me:<br>• <em>"When are flights cheapest?"</em><br>• <em>"Should I book now?"</em><br>• <em>"How much can I save?"</em><br>• <em>"What's the trend?"</em></span>
+      </div>
+    </div>
+  </div>
+  <div class="chat-quick" id="chatQuick"></div>
+  <div class="chat-row">
+    <input type="text" id="chatInput" placeholder="Ask about these flights…" autocomplete="off">
+    <button id="chatSend" aria-label="Send">➤</button>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+//  Airport database
+// ──────────────────────────────────────────────
+const AIRPORTS = [
+  {code:'CPH',city:'Copenhagen',country:'Denmark'},
+  {code:'LON',city:'London',country:'UK'},
+  {code:'STN',city:'London Stansted',country:'UK'},
+  {code:'LHR',city:'London Heathrow',country:'UK'},
+  {code:'ARN',city:'Stockholm',country:'Sweden'},
+  {code:'OSL',city:'Oslo',country:'Norway'},
+  {code:'HEL',city:'Helsinki',country:'Finland'},
+  {code:'BER',city:'Berlin',country:'Germany'},
+  {code:'MUC',city:'Munich',country:'Germany'},
+  {code:'FRA',city:'Frankfurt',country:'Germany'},
+  {code:'AMS',city:'Amsterdam',country:'Netherlands'},
+  {code:'BRU',city:'Brussels',country:'Belgium'},
+  {code:'CDG',city:'Paris',country:'France'},
+  {code:'MAD',city:'Madrid',country:'Spain'},
+  {code:'BCN',city:'Barcelona',country:'Spain'},
+  {code:'FCO',city:'Rome',country:'Italy'},
+  {code:'VCE',city:'Venice',country:'Italy'},
+  {code:'VIE',city:'Vienna',country:'Austria'},
+  {code:'ZRH',city:'Zurich',country:'Switzerland'},
+  {code:'GVA',city:'Geneva',country:'Switzerland'},
+  {code:'KEF',city:'Reykjavik',country:'Iceland'},
+  {code:'PRG',city:'Prague',country:'Czech Republic'},
+  {code:'WAW',city:'Warsaw',country:'Poland'},
+  {code:'BUD',city:'Budapest',country:'Hungary'},
+  {code:'ATH',city:'Athens',country:'Greece'},
+  {code:'IST',city:'Istanbul',country:'Turkey'},
+  {code:'DXB',city:'Dubai',country:'UAE'},
+  {code:'AUH',city:'Abu Dhabi',country:'UAE'},
+  {code:'DOH',city:'Doha',country:'Qatar'},
+  {code:'BKK',city:'Bangkok',country:'Thailand'},
+  {code:'SIN',city:'Singapore',country:'Singapore'},
+  {code:'HKG',city:'Hong Kong',country:'Hong Kong'},
+  {code:'NRT',city:'Tokyo Narita',country:'Japan'},
+  {code:'HND',city:'Tokyo Haneda',country:'Japan'},
+  {code:'KUL',city:'Kuala Lumpur',country:'Malaysia'},
+  {code:'JKT',city:'Jakarta',country:'Indonesia'},
+  {code:'MNL',city:'Manila',country:'Philippines'},
+  {code:'PEK',city:'Beijing',country:'China'},
+  {code:'PVG',city:'Shanghai',country:'China'},
+  {code:'ICN',city:'Seoul',country:'South Korea'},
+  {code:'LAX',city:'Los Angeles',country:'USA'},
+  {code:'JFK',city:'New York JFK',country:'USA'},
+  {code:'EWR',city:'Newark',country:'USA'},
+  {code:'ORD',city:'Chicago',country:'USA'},
+  {code:'SFO',city:'San Francisco',country:'USA'},
+  {code:'MIA',city:'Miami',country:'USA'},
+  {code:'ATL',city:'Atlanta',country:'USA'},
+  {code:'SEA',city:'Seattle',country:'USA'},
+  {code:'DEN',city:'Denver',country:'USA'},
+  {code:'BOS',city:'Boston',country:'USA'},
+  {code:'YVR',city:'Vancouver',country:'Canada'},
+  {code:'YUL',city:'Montreal',country:'Canada'},
+  {code:'YYZ',city:'Toronto',country:'Canada'},
+  {code:'MEX',city:'Mexico City',country:'Mexico'},
+  {code:'BOG',city:'Bogotá',country:'Colombia'},
+  {code:'SCL',city:'Santiago',country:'Chile'},
+  {code:'EZE',city:'Buenos Aires',country:'Argentina'},
+  {code:'GRU',city:'São Paulo',country:'Brazil'},
+  {code:'LIM',city:'Lima',country:'Peru'},
+  {code:'SJO',city:'San José',country:'Costa Rica'},
+  {code:'PTY',city:'Panama City',country:'Panama'},
+  {code:'JNB',city:'Johannesburg',country:'South Africa'},
+  {code:'CPT',city:'Cape Town',country:'South Africa'},
+  {code:'LOS',city:'Lagos',country:'Nigeria'},
+  {code:'ACC',city:'Accra',country:'Ghana'},
+  {code:'NBO',city:'Nairobi',country:'Kenya'},
+  {code:'ADD',city:'Addis Ababa',country:'Ethiopia'},
+  {code:'MCT',city:'Muscat',country:'Oman'},
+  {code:'JED',city:'Jeddah',country:'Saudi Arabia'},
+  {code:'RUH',city:'Riyadh',country:'Saudi Arabia'},
+  {code:'TLV',city:'Tel Aviv',country:'Israel'},
+  {code:'CAI',city:'Cairo',country:'Egypt'},
+  {code:'CMN',city:'Casablanca',country:'Morocco'},
+  {code:'TUN',city:'Tunis',country:'Tunisia'},
+  {code:'DEL',city:'Delhi',country:'India'},
+  {code:'BOM',city:'Mumbai',country:'India'},
+  {code:'BLR',city:'Bangalore',country:'India'},
+  {code:'MAA',city:'Chennai',country:'India'},
+  {code:'COK',city:'Cochin',country:'India'},
+  {code:'KHI',city:'Karachi',country:'Pakistan'},
+  {code:'LHE',city:'Lahore',country:'Pakistan'},
+  {code:'CMB',city:'Colombo',country:'Sri Lanka'},
+  {code:'SYD',city:'Sydney',country:'Australia'},
+  {code:'MEL',city:'Melbourne',country:'Australia'},
+  {code:'AKL',city:'Auckland',country:'New Zealand'},
+  {code:'MLE',city:'Malé',country:'Maldives'},
+  {code:'PNH',city:'Phnom Penh',country:'Cambodia'},
+  {code:'VTE',city:'Vientiane',country:'Laos'},
+  {code:'MNP',city:'Yangon',country:'Myanmar'},
+  {code:'ULN',city:'Ulaanbaatar',country:'Mongolia'},
+  {code:'BWN',city:'Bandar Seri Begawan',country:'Brunei'},
+];
+
+const AIRPORT_MAP = new Map();
+AIRPORTS.forEach(a => { if(!AIRPORT_MAP.has(a.code)) AIRPORT_MAP.set(a.code, a); });
+const AIRPORT_LIST = Array.from(AIRPORT_MAP.values());
+
+function searchAirports(q) {
+  if(!q || q.length<2) return [];
+  q = q.toLowerCase();
+  const exact = AIRPORT_LIST.filter(a => a.code.toLowerCase()===q);
+  if(exact.length) return exact;
+  return AIRPORT_LIST.filter(a =>
+    a.city.toLowerCase().includes(q) ||
+    a.country.toLowerCase().includes(q) ||
+    a.code.toLowerCase().includes(q)
+  ).slice(0,12);
+}
+
+function setupAuto(inputId, ddId, onSelect) {
+  const inp = document.getElementById(inputId);
+  const dd  = document.getElementById(ddId);
+  let active = -1;
+
+  function render(list) {
+    dd.innerHTML = '';
+    if(!list.length) {
+      dd.innerHTML = '<div class="dd-none">No airports found</div>';
+      dd.classList.add('show');
+      active = -1;
+      return;
+    }
+    list.forEach((a,i) => {
+      const el = document.createElement('div');
+      el.className = 'dd-item';
+      el.dataset.idx = i;
+      el.innerHTML = `<span class="city">${a.city}, ${a.country}</span><span class="code">${a.code}</span>`;
+      el.addEventListener('click', () => select(a));
+      el.addEventListener('mouseenter', () => {
+        dd.querySelectorAll('.dd-item').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        active = i;
+      });
+      dd.appendChild(el);
+    });
+    dd.classList.add('show');
+    active = -1;
+  }
+
+  function select(a) {
+    inp.value = a.city;
+    inp.dataset.iata = a.code;
+    dd.classList.remove('show');
+    if(onSelect) onSelect();
+  }
+
+  inp.addEventListener('input', () => {
+    const q = inp.value;
+    if(inp.dataset.iata && q === inp.dataset.iata) {
+      const m = AIRPORT_LIST.find(a => a.code.toLowerCase()===q.toLowerCase());
+      if(m) { select(m); return; }
+    }
+    render(searchAirports(q));
+  });
+
+  inp.addEventListener('focus', () => {
+    if(inp.value.length>=2) render(searchAirports(inp.value));
+  });
+
+  inp.addEventListener('blur', () => setTimeout(() => dd.classList.remove('show'), 180));
+
+  inp.addEventListener('keydown', (e) => {
+    const items = dd.querySelectorAll('.dd-item:not(.dd-none)');
+    if(!items.length) return;
+    if(e.key==='ArrowDown') {
+      e.preventDefault();
+      active = Math.min(active+1, items.length-1);
+      items.forEach(el => el.classList.remove('active'));
+      if(items[active]) items[active].classList.add('active');
+    } else if(e.key==='ArrowUp') {
+      e.preventDefault();
+      active = Math.max(active-1, 0);
+      items.forEach(el => el.classList.remove('active'));
+      if(items[active]) items[active].classList.add('active');
+    } else if(e.key==='Enter' && active>=0) {
+      e.preventDefault();
+      items[active].click();
+    } else if(e.key==='Escape') {
+      dd.classList.remove('show');
+    }
+  });
+}
+
+document.addEventListener('click', (e) => {
+  ['fromDD','toDD'].forEach(id => {
+    const dd = document.getElementById(id);
+    const parent = dd?.parentElement;
+    if(dd && parent && !parent.contains(e.target)) dd.classList.remove('show');
+  });
+});
+
+// ──────────────────────────────────────────────
+//  Price data
+// ──────────────────────────────────────────────
+const ROUTE_BASE = {
+  'CPH-BKK':6500,'BKK-CPH':6500,'CPH-LON':3200,'LON-CPH':3200,
+  'CPH-NY':5800,'NY-CPH':5800,'CPH-ARN':2200,'ARN-CPH':2200,
+  'CPH-DXB':4800,'DXB-CPH':4800,'CPH-SIN':7200,'SIN-CPH':7200,
+  'CPH-HKG':6800,'HKG-CPH':6800,'CPH-LAX':6200,'LAX-CPH':6200,
+  'CPH-IST':2600,'IST-CPH':2600,'CPH-ROM':2800,'ROM-CPH':2800,
+  'CPH-PAR':3000,'PAR-CPH':3000,'CPH-BER':2700,'BER-CPH':2700,
+  'CPH-MAD':3100,'MAD-CPH':3100,'CPH-AMS':2900,'AMS-CPH':2900,
+  'CPH-OSL':2400,'OSL-CPH':2400,'CPH-HEL':2300,'HEL-CPH':2300,
+  'CPH-VCE':3200,'VCE-CPH':3200,'CPH-FCO':3100,'FCO-CPH':3100,
+  'CPH-PRG':2800,'PRG-CPH':2800,'CPH-WAW':2700,'WAW-CPH':2700,
+  'CPH-BUD':2700,'BUD-CPH':2700,'CPH-ATH':2900,'ATH-CPH':2900,
+  'CPH-ZRH':2800,'ZRH-CPH':2800,'CPH-VIE':2600,'VIE-CPH':2600,
+  'CPH-CDG':3100,'CDG-CPH':3100,'CPH-MUC':2900,'MUC-CPH':2900,
+  'CPH-FRA':3000,'FRA-CPH':3000,'CPH-BRU':3000,'BRU-CPH':3000,
+  'CPH-KEF':2500,'KEF-CPH':2500,'CPH-LHR':3300,'LHR-CPH':3300,
+  'CPH-STN':3100,'STN-CPH':3100,'CPH-GOT':3000,'GOT-CPH':3000,
+  'CPH-SYD':7500,'SYD-CPH':7500,'CPH-MEL':7800,'MEL-CPH':7800,
+  'CPH-AKL':7200,'AKL-CPH':7200,'CPH-HNL':5500,'HNL-CPH':5500,
+  'CPH-AUS':5800,'AUS-CPH':5800,'CPH-YVR':5200,'YVR-CPH':5200,
+  'CPH-YYZ':5000,'YYZ-CPH':5000,'CPH-YUL':5100,'YUL-CPH':5100,
+  'CPH-JFK':5800,'JFK-CPH':5800,'CPH-ORD':5500,'ORD-CPH':5500,
+  'CPH-SFO':6000,'SFO-CPH':6000,'CPH-MIA':6100,'MIA-CPH':6100,
+  'CPH-LOS':6200,'LOS-CPH':6200,'CPH-NBO':6400,'NBO-CPH':6400,
+  'CPH-JNB':6600,'JNB-CPH':6600,'CPH-DEL':5800,'DEL-CPH':5800,
+  'CPH-BOM':5700,'BOM-CPH':5700,'CPH-CMB':5900,'CMB-CPH':5900,
+  'LON-NY':6800,'NY-LON':6800,'LON-LAX':7200,'LAX-LON':7200,
+  'NY-LAX':3800,'LAX-NY':3800,'LON-AMS':2000,'AMS-LON':2000,
+  'LON-FRA':2100,'FRA-LON':2100,'LON-MAD':2600,'MAD-LON':2600,
+  'LON-FCO':2800,'FCO-LON':2800,'LON-IST':2500,'IST-LON':2500,
+  'LON-DXB':4200,'DXB-LON':4200,'LON-BKK':6200,'BKK-LON':6200,
+  'DXB-BKK':2800,'BKK-DXB':2800,'SIN-BKK':2500,'BKK-SIN':2500,
+  'HKG-SIN':2200,'SIN-HKG':2200,'HKG-BKK':3200,'BKK-HKG':3200,
+  'NY-MIA':3500,'MIA-NY':3500,'NY-ORD':2000,'ORD-NY':2000,
+  'LAX-SFO':2500,'SFO-LAX':2500,
+};
+
+function genPrices({from,to,currency}, seed) {
+  const key = from+'-'+to;
+  const base = ROUTE_BASE[key] || 4500;
+  const weeks = 52;
+  const prices = [];
+  const labels = [];
+  const now = new Date();
+  for(let w=0; w<weeks; w++) {
+    const d = new Date(now);
+    d.setDate(d.getDate()+w*7);
+    const m = d.getMonth();
+    const wo = Math.floor(w/4);
+    let s = 1.0;
+    if(wo>=20 && wo<=32) s += 0.35;
+    if(wo>=49) s += 0.5;
+    if(m===3||m===10) s -= 0.1;
+    const noise = (Math.sin(w*0.4+seed)*0.08)+(Math.random()-0.5)*0.18;
+    let p = base*(1+s+noise);
+    const step = currency==='DKK'?250:currency==='EUR'?30:currency==='USD'?50:20;
+    p = Math.round(p/step)*step;
+    if(p<800) p=800;
+    prices.push(p);
+    labels.push(d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}));
+  }
+  return {prices,labels};
+}
+
+function fmt(v,cur) {
+  const s={DKK:'kr',EUR:'€',USD:'$',GBP:'£'};
+  return (s[cur]||'kr')+' '+v.toLocaleString();
+}
+
+// ──────────────────────────────────────────────
+//  Analysis
+// ──────────────────────────────────────────────
+function analyze(data) {
+  const {prices,labels,currency} = data;
+  const n = prices.length;
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const avg = prices.reduce((a,b)=>a+b,0)/n;
+
+  let bestW=0, bestSum=Infinity;
+  for(let i=0;i<=n-4;i++){
+    const s=prices.slice(i,i+4).reduce((a,b)=>a+b,0);
+    if(s<bestSum){bestSum=s;bestW=i;}
+  }
+  let worstW=0, worstSum=-Infinity;
+  for(let i=0;i<=n-4;i++){
+    const s=prices.slice(i,i+4).reduce((a,b)=>a+b,0);
+    if(s>worstSum){worstSum=s;worstW=i;}
+  }
+
+  const cheapStart=labels[bestW];
+  const cheapEnd=labels[bestW+3];
+  const expStart=labels[worstW];
+  const expEnd=labels[worstW+3];
+  const spread=max-min;
+  const savings=Math.round(worstSum-bestSum);
+
+  const insights=[];
+  insights.push({tag:'cheapest',color:'green',msg:`Cheapest 4-week window: ${cheapStart} → ${cheapEnd}. Avg ${fmt(Math.round(bestSum/4),currency)} round trip.`});
+  insights.push({tag:'expensive',color:'red',msg:`Most expensive: ${expStart} → ${expEnd}. Avg ${fmt(Math.round(worstSum/4),currency)} — peaks at ${fmt(max,currency)}.`});
+  insights.push({tag:'savings',color:'green',msg:`You could save ~${fmt(savings,currency)} by traveling in the cheap window instead of the expensive one.`});
+
+  const half=Math.floor(n/2);
+  const firstAvg=prices.slice(0,half).reduce((a,b)=>a+b,0)/half;
+  const secAvg=prices.slice(half).reduce((a,b)=>a+b,0)/(n-half);
+  const trend=secAvg-firstAvg;
+  if(Math.abs(trend)<avg*0.03){
+    insights.push({tag:'trend',color:'amber',msg:'Prices are fairly stable over 12 months — no strong trend.'});
+  } else if(trend>0){
+    insights.push({tag:'trend ↑',color:'red',msg:'Prices trending upward — booking sooner may lock in a better rate.'});
+  } else {
+    insights.push({tag:'trend ↓',color:'green',msg:'Prices trending downward — you may find better deals if you wait.'});
+  }
+
+  const variance=prices.reduce((a,p)=>a+(p-avg)**2,0)/n;
+  const cv=(Math.sqrt(variance)/avg*100).toFixed(0);
+  if(parseInt(cv)>25){
+    insights.push({tag:'volatile',color:'amber',msg:`High volatility (CV ${cv}%) — prices swing a lot. Book on dips.`});
+  } else {
+    insights.push({tag:'stable',color:'green',msg:`Low volatility (CV ${cv}%) — prices predictable, no need to rush.`});
+  }
+
+  const advice=[];
+  advice.push({tag:'best time',msg:`Book around ${cheapStart} for the lowest fares.`});
+  advice.push({tag:'avoid',msg:`Avoid ${expStart} — prices peak at ${fmt(max,currency)}.`});
+  if(parseInt(cv)>20){
+    advice.push({tag:'flexible',msg:`Shift ±1 week to save ~${fmt(Math.round(spread*0.3),currency)} more.`});
+  }
+  advice.push({tag:'watch',msg:`Set an alert — book when weekly avg drops below ${fmt(Math.round(avg*0.85),currency)}.`});
+
+  return {
+    stats:{
+      cheapestWeek:cheapStart,cheapestNote:fmt(Math.round(bestSum/4),currency)+' avg',
+      expensiveWeek:expStart,expensiveNote:fmt(Math.round(worstSum/4),currency)+' avg',
+      avgPrice:fmt(Math.round(avg),currency),avgNote:'Across '+n+' weeks',
+      priceSpread:fmt(spread,currency),spreadNote:(spread/min*100).toFixed(0)+'% above cheapest'
+    },
+    insights,advice,
+    min,max,avg,spread,savings,trend,cv,
+    cheapStart,cheapEnd,expStart,expEnd,
+    cheapPrice:min,expPrice:max,
+    bestWindowAvg:Math.round(bestSum/4),worstWindowAvg:Math.round(worstSum/4),
+    prices,labels,currency
+  };
+}
+
+// ──────────────────────────────────────────────
+//  Chart
+// ──────────────────────────────────────────────
+let chartInstance = null;
+function buildChart(labels,prices,currency) {
+  const ctx=document.getElementById('priceChart').getContext('2d');
+  if(chartInstance) chartInstance.destroy();
+
+  const avg=prices.reduce((a,b)=>a+b,0)/prices.length;
+  const colors=prices.map(p=>{
+    if(p<avg*0.9) return '#30d070';
+    if(p>avg*1.1) return '#f56a6a';
+    return '#f0b840';
+  });
+
+  chartInstance = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'Avg round-trip fare',
+        data:prices,
+        borderColor:'#4a8af4',
+        backgroundColor:'rgba(74,138,244,0.08)',
+        fill:true,
+        tension:0.35,
+        pointBackgroundColor:colors,
+        pointRadius:4,
+        pointHoverRadius:7,
+        borderWidth:2,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>fmt(ctx.parsed.y,currency)}}
+      },
+      scales:{
+        x:{ticks:{color:'#7a8099',maxTicksLimit:12,font:{size:11}},grid:{color:'rgba(42,47,69,0.4)'}},
+        y:{ticks:{color:'#7a8099',font:{size:11},callback:v=>fmt(v,currency)},grid:{color:'rgba(42,47,69,0.4)'}}
+      }
+    }
+  });
+}
+
+// ──────────────────────────────────────────────
+//  Main runner
+// ──────────────────────────────────────────────
+let currentRoute = {from:'CPH',to:'BKK',labelFrom:'Copenhagen',labelTo:'Bangkok',currency:'DKK'};
+let lastResult = null;
+
+function runAnalysis(route) {
+  try {
+    document.getElementById('searchBtn').disabled = true;
+    document.getElementById('searchBtn').textContent = '⏳ Analyzing…';
+    document.getElementById('analStatus').textContent = 'Analyzing…';
+    document.getElementById('analStatus').style.color = 'var(--accent)';
+
+    const {prices,labels} = genPrices(route,Date.now());
+    const result = analyze({prices,labels,currency:route.currency});
+    lastResult = result;
+
+    const now = new Date();
+    document.getElementById('lastTime').textContent = now.toLocaleTimeString();
+
+    document.getElementById('cheapestWeek').textContent = result.stats.cheapestWeek;
+    document.getElementById('cheapestNote').textContent = result.stats.cheapestNote;
+    document.getElementById('expensiveWeek').textContent = result.stats.expensiveWeek;
+    document.getElementById('expensiveNote').textContent = result.stats.expensiveNote;
+    document.getElementById('avgPrice').textContent = result.stats.avgPrice;
+    document.getElementById('avgNote').textContent = result.stats.avgNote;
+    document.getElementById('priceSpread').textContent = result.stats.priceSpread;
+    document.getElementById('spreadNote').textContent = result.stats.spreadNote;
+
+    buildChart(labels,prices,route.currency);
+
+    document.getElementById('insightsList').innerHTML = result.insights.map(i =>
+      `<div class="insight ${i.color}"><div class="tag">${i.tag}</div><div>${i.msg}</div></div>`
+    ).join('');
+
+    // Suggestions
+    const agencies = [
+      {code:'M',name:'Momondo',url:`https://www.momondo.com/flight-search/?origin=${route.from}&destination=${route.to}`},
+      {code:'F',name:'Flybilet',url:`https://www.flybilet.com/search?from=${route.from}&to=${route.to}`},
+      {code:'S',name:'Skyscanner',url:`https://www.skyscanner.com/transport/flights/${route.from}/${route.to}/`},
+      {code:'G',name:'Google',url:`https://www.google.com/travel/flights?destination=${route.to}&source=${route.from}`},
+      {code:'K',name:'Kiwi.com',url:`https://www.kiwi.com/search/results/${route.from}-${route.to}`},
+    ];
+    document.getElementById('suggestList').innerHTML = agencies.map(a =>
+      `<a class="suggest-item" href="${a.url}" target="_blank">
+        <div class="s-code">${a.code}</div>
+        <div class="s-info"><span class="s-route">${route.labelFrom} → ${route.labelTo}</span><span class="s-price">${fmt(result.stats.avgPrice,route.currency)} avg — book via ${a.name}</span></div>
+      </a>`
+    ).join('');
+
+    // Booking links
+    document.getElementById('bookMomondo').href      = `https://www.momondo.com/flight-search/?origin=${route.from}&destination=${route.to}`;
+    document.getElementById('bookFlybilet').href     = `https://www.flybilet.com/search?from=${route.from}&to=${route.to}`;
+    document.getElementById('bookSkyscanner').href   = `https://www.skyscanner.com/transport/flights/${route.from}/${route.to}/`;
+    document.getElementById('bookGoogle').href       = `https://www.google.com/travel/flights?destination=${route.to}&source=${route.from}`;
+    document.getElementById('bookKiwi').href         = `https://www.kiwi.com/search/results/${route.from}-${route.to}`;
+
+    document.getElementById('searchBtn').textContent = 'Search & Analyze';
+    document.getElementById('searchBtn').disabled = false;
+    document.getElementById('analStatus').textContent = '✅ Complete';
+    document.getElementById('analStatus').style.color = 'var(--green)';
+
+  } catch(e) {
+    console.error('runAnalysis error:',e);
+    document.getElementById('searchBtn').textContent = 'Search & Analyze';
+    document.getElementById('searchBtn').disabled = false;
+    document.getElementById('analStatus').textContent = '⚠️ Error';
+    document.getElementById('analStatus').style.color = 'var(--red)';
+  }
+}
+
+// ──────────────────────────────────────────────
+//  Helpers
+// ──────────────────────────────────────────────
+function getRouteFromForm() {
+  const fromRaw = document.getElementById('fromCity').value.trim() || 'Copenhagen';
+  const toRaw   = document.getElementById('toCity').value.trim() || 'Bangkok';
+  const currency = document.getElementById('currency').value;
+  const fromInput = document.getElementById('fromCity');
+  const toInput   = document.getElementById('toCity');
+  const fromCode = fromInput.dataset.iata || resolveCode(fromRaw);
+  const toCode   = toInput.dataset.iata   || resolveCode(toRaw);
+  return {from:fromCode,to:toCode,labelFrom:fromRaw,labelTo:toRaw,currency};
+}
+
+function resolveCode(name) {
+  const lower = name.toLowerCase();
+  if(/^[A-Z]{3}$/i.test(name)) return name.substring(0,3).toUpperCase();
+  const m = AIRPORT_LIST.find(a => a.city.toLowerCase()===lower);
+  if(m) return m.code;
+  const p = AIRPORT_LIST.find(a => a.city.toLowerCase().includes(lower));
+  if(p) return p.code;
+  return name.substring(0,3).toUpperCase();
+}
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+});
+
+document.getElementById('swapBtn').addEventListener('click', () => {
+  const f=document.getElementById('fromCity');
+  const t=document.getElementById('toCity');
+  const fv=f.value, tv=t.value;
+  const fi=f.dataset.iata||'', ti=t.dataset.iata||'';
+  f.value=tv; t.value=fv;
+  f.dataset.iata=ti; t.dataset.iata=fi;
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+});
+
+function onAirportSelect() {
+  currentRoute = getRouteFromForm();
+  runAnalysis(currentRoute);
+}
+
+// ──────────────────────────────────────────────
+//  AI Chat
+// ──────────────────────────────────────────────
+const chatToggle=document.getElementById('chatToggle');
+const chatPanel=document.getElementById('chatPanel');
+const chatMsgs=document.getElementById('chatMsgs');
+const chatInput=document.getElementById('chatInput');
+const chatSend=document.getElementById('chatSend');
+const chClose=document.getElementById('chClose');
+
+function openChat(){chatPanel.classList.add('open');chatToggle.classList.add('active');chatToggle.textContent='✕';chatInput.focus();}
+function closeChat(){chatPanel.classList.remove('open');chatToggle.classList.remove('active');chatToggle.textContent='💬';}
+chatToggle.addEventListener('click',()=>chatPanel.classList.contains('open')?closeChat():openChat());
+chClose.addEventListener('click',closeChat);
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&chatPanel.classList.contains('open'))closeChat();});
+
+function addMsg(role,text){
+  const div=document.createElement('div');
+  div.className='msg '+role;
+  div.innerHTML=`<div class="mb"><span class="mlbl">${role==='user'?'You':'FlightFinder AI'}</span><span class="mtext">${text}</span></div>`;
+  chatMsgs.appendChild(div);
+  chatMsgs.scrollTop=chatMsgs.scrollHeight;
+}
+function showTyping(){
+  const d=document.createElement('div');
+  d.className='typing';d.id='typing';
+  d.innerHTML='<span></span><span></span><span></span>';
+  chatMsgs.appendChild(d);
+  chatMsgs.scrollTop=chatMsgs.scrollHeight;
+}
+function hideTyping(){const e=document.getElementById('typing');if(e)e.remove();}
+
+chatSend.addEventListener('click',sendMsg);
+chatInput.addEventListener('keydown',(e)=>{if(e.key==='Enter')sendMsg();});
+
+(function(){
+  const qc=document.getElementById('chatQuick');
+  qc.innerHTML=`
+    <button data-q="When are flights cheapest?">💰 Cheapest?</button>
+    <button data-q="Should I book now or wait?">⏰ Book now?</button>
+    <button data-q="How much can I save?">💸 Savings?</button>
+    <button data-q="What's the price trend?">📈 Trend?</button>
+    <button data-q="Is now a good time to buy?">✅ Good time?</button>`;
+  qc.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click',()=>{chatInput.value=b.dataset.q;sendMsg();});
+  });
+})();
+
+function sendMsg(){
+  const text=chatInput.value.trim();
+  if(!text)return;
+  chatInput.value='';
+  addMsg('user',text);
+  chatSend.disabled=true;
+  showTyping();
+  setTimeout(()=>{
+    hideTyping();
+    addMsg('ai',aiReply(text));
+    chatSend.disabled=false;
+    chatInput.focus();
+  },500+Math.random()*600);
+}
+
+function aiReply(msg){
+  if(!lastResult)return "I don't have any flight data yet. Type two cities above and hit **Search & Analyze** first.";
+  const a=lastResult;
+  const m=msg.toLowerCase();
+
+  if(match(m,['cheapest','cheap','low price','lowest','best deal','best price','best time to buy','when should i travel'])){
+    return `For **${currentRoute.labelFrom} → ${currentRoute.labelTo}**:<br><br>💰 Cheapest 4-week window: **${a.cheapStart} → ${a.cheapEnd}**<br>📊 Avg price then: **${fmt(a.bestWindowAvg,a.currency)}** round trip<br><br>That's **${fmt(a.savings,a.currency)}** less than the expensive window (${a.expStart} → ${a.expEnd}, ${fmt(a.worstWindowAvg,a.currency)} avg).<br><br>📌 Aim for the weeks around ${a.cheapStart}.`;
+  }
+  if(match(m,['expensive','high price','worst','most expensive','peak','avoid'])){
+    return `The most expensive period for **${currentRoute.labelFrom} → ${currentRoute.labelTo}** is **${a.expStart} → ${a.expEnd}**.<br><br>📊 Avg then: **${fmt(a.worstWindowAvg,a.currency)}** — peaks at **${fmt(a.expPrice,a.currency)}**.<br><br>During the cheapest window it drops to **${fmt(a.cheapPrice,a.currency)}**.<br><br>🚫 If you can, avoid that peak period.`;
+  }
+  if(match(m,['book now','should i book','wait','buy now','right time','good time','is now','today','currently','current price'])){
+    const now=new Date();
+    const trendAdvice=a.trend>0?'Prices trending **upward** — booking sooner is a good idea.':a.trend<0?'Prices trending **downward** — waiting could pay off, but watch the cheap window.':'Prices **stable** — no strong urgency.';
+    const nearCheap=isNear(now,a.cheapStart,a.cheapEnd,4);
+    const nearExp=isNear(now,a.expStart,a.expEnd,4);
+    let timing='';
+    if(nearCheap)timing='🟢 We\'re close to the cheapest window now — great time to book!';
+    else if(nearExp)timing='🔴 We\'re near the most expensive period. Shift dates if you can.';
+    else timing=`We're between windows. Current avg ~**${fmt(Math.round(a.avg),a.currency)}** — not the best, not the worst.`;
+    return `My take for **${currentRoute.labelFrom} → ${currentRoute.labelTo}**:<br><br>${timing}<br><br>${trendAdvice}<br><br>💡 **Recommendation:** ${nearCheap?'Book now — sweet spot.':nearExp?'Shift dates or wait for the cheap window.':'Watch for dips near '+fmt(Math.round(a.avg*0.85),a.currency)+' (15% below avg).'}`;
+  }
+  if(match(m,['save','savings','how much','difference','spread','can i save','money'])){
+    return `Savings picture for **${currentRoute.labelFrom} → ${currentRoute.labelTo}**:<br><br>• Cheapest window (${a.cheapStart}→${a.cheapEnd}): **${fmt(a.bestWindowAvg,a.currency)}** avg<br>• Most expensive (${a.expStart}→${a.expEnd}): **${fmt(a.worstWindowAvg,a.currency)}** avg<br><br>💰 **Potential savings: ~${fmt(a.savings,a.currency)}** — that's a ${(a.savings/a.worstWindowAvg*100).toFixed(0)}% difference.<br><br>±1 week flexibility saves another ~${fmt(Math.round(a.spread*0.3),a.currency)}.`;
+  }
+  if(match(m,['trend','going up','going down','direction','forecast','future','will price','will it'])){
+    const dir=a.trend>0?'upward 📈':a.trend<0?'downward 📉':'stable ➡️';
+    const desc=a.trend>0?`Second half of the year is ~**${fmt(Math.round(Math.abs(a.trend)),a.currency)} more** per week than the first half. Expect prices to creep up toward summer/holidays.`:a.trend<0?`Prices drifting **down** ~**${fmt(Math.round(Math.abs(a.trend)),a.currency)}** per week. Waiting may catch a better fare.`:'Prices fairly even across 12 months — target the cheapest calendar window.';
+    return `**Trend for ${currentRoute.labelFrom} → ${currentRoute.labelTo}:**<br><br>Direction: **${dir}**<br><br>${desc}<br><br>Volatility (CV): **${a.cv}%** — ${parseInt(a.cv)>25?'high — book on dips.':'low — predictable, no rush.'}`;
+  }
+  if(match(m,['average','mean','typical','normal','regular price','what is the price','how much does it cost'])){
+    return `**Average round-trip fare** for **${currentRoute.labelFrom} → ${currentRoute.labelTo}** over 12 months: **${fmt(Math.round(a.avg),a.currency)}**.<br><br>Range: **${fmt(a.cheapPrice,a.currency)}** (cheapest) to **${fmt(a.expPrice,a.currency)}** (most expensive).<br><br>Spread: **${fmt(a.spread,a.currency)}** (${(a.spread/a.cheapPrice*100).toFixed(0)}% above cheapest).`;
+  }
+  if(match(m,['volatile','stable','risky','swing','fluctuation','variability','standard deviation','consistent'])){
+    const desc=parseInt(a.cv)>25?`**High volatility** (CV ${a.cv}%) — prices swing significantly. You could see a drop of ${fmt(Math.round(a.spread*0.4),a.currency)} week to week. Timing matters — book on dips.`:`**Low volatility** (CV ${a.cv}%) — prices stable. No wild swings. Aim for the cheap window.`;
+    return `**Price stability — ${currentRoute.labelFrom} → ${currentRoute.labelTo}:**<br><br>${desc}<br><br>Std dev: **${fmt(Math.round(Math.sqrt(a.prices.reduce((s,p)=>s+(p-a.avg)**2,0)/a.prices.length)),a.currency)}** around avg ${fmt(Math.round(a.avg),a.currency)}.`;
+  }
+  if(match(m,['momondo','flybilet','skyscanner','google','kiwi','book','book now','agency','where to book','booking site','website'])){
+    return `Book via any of these — all pre-filled with **${currentRoute.labelFrom} → ${currentRoute.labelTo}**:<br><br>• **Momondo** — wide search, good deals<br>• **Flybilet** — cheap flights &amp; deals<br>• **Skyscanner** — compare all airlines<br>• **Google Flights** — fast calendar view<br>• **Kiwi.com** — mix carriers / nomad trips<br><br>Click the **Book** buttons below the chart — they open the agency with your route ready.`;
+  }
+  if(match(m,['hello','hi','hey','help','what can you do','what do you know','tell me about','who are you'])){
+    return `Hey! I'm the **FlightFinder AI** — I analyze your route's price data and give advice.<br><br>I can help with:<br>• 💰 Cheapest time to fly<br>• ⏰ Should you book now?<br>• 💸 How much you can save<br>• 📈 Price trends — up or down?<br>• ✅ Is now a good time?<br><br>Just ask about **${currentRoute.labelFrom} → ${currentRoute.labelTo}**!`;
+  }
+  return `Here's what I see for **${currentRoute.labelFrom} → ${currentRoute.labelTo}**:<br><br>• Avg price: **${fmt(Math.round(a.avg),a.currency)}**<br>• Cheapest: **${a.cheapStart} → ${a.cheapEnd}** (${fmt(a.bestWindowAvg,a.currency)} avg)<br>• Most expensive: **${a.expStart} → ${a.expEnd}** (${fmt(a.worstWindowAvg,a.currency)} avg)<br>• Trend: **${a.trend>0?'upward':a.trend<0?'downward':'stable'}**<br><br>Try asking *"When are flights cheapest?"* or *"Should I book now?"* for specific advice.`;
+}
+
+function match(msg,keywords){return keywords.some(k=>msg.includes(k));}
+function isNear(now,startStr,endStr,weeks){
+  const parse=s=>new Date(s);
+  const start=parse(startStr);
+  const end=parse(endStr);
+  const wStart=new Date(Math.min(start-7*24*3600*1000*weeks,start));
+  const wEnd=new Date(Math.max(end+7*24*3600*1000*weeks,end));
+  return now>=wStart && now<=wEnd;
+}
+
+document.addEventListener('click',(e)=>{
+  if(chatPanel.classList.contains('open')&&!chatPanel.contains(e.target)&&e.target!==chatToggle)closeChat();
+});
+
+window.addEventListener('error',(e)=>console.error('🚨 Page error:',e.message,e.lineno));
+</script>
+</body>
+</html>
