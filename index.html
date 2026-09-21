@@ -1061,7 +1061,6 @@ function buildBookingUrl(agency, route, travel) {
 }
 
 // Booking links — pre-filled with all travel details
-const travel = getTravel();
 document.getElementById('bookMomondo').href      = buildBookingUrl('momondo', currentRoute, travel);
 document.getElementById('bookFlybilet').href     = buildBookingUrl('flybilet', currentRoute, travel);
 document.getElementById('bookSkyscanner').href   = buildBookingUrl('skyscanner', currentRoute, travel);
